@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @RequestMapping("api/role/group")
 @RestController
@@ -43,6 +45,28 @@ public class RoleGroupController {
             return new ResponseEntity<>(updateRoleGroup, HttpStatus.NOT_FOUND);
         }
     }
+
+    /**
+     * RoleGroup 전체조회
+     *
+     * @return
+     */
+    @GetMapping("/list")
+    public ResponseEntity<List<RoleGroupDto>> getRoleGroupList() {
+        List<RoleGroupDto> roleGroupList = roleGroupService.getRoleGroups();
+        return new ResponseEntity<>(roleGroupList, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/delete/{roleId}")
+    public ResponseEntity<String> deleteRoleGroup(@PathVariable("roleId") String roleId) {
+        String message = roleGroupService.deleteRoleGroup(roleId);
+        if (message.equals("완료")) {
+            return new ResponseEntity<>(message, HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(message, HttpStatus.BAD_REQUEST);
+        }
+    }
+
 
 
 }

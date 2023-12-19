@@ -1,5 +1,7 @@
 package com.sb.seegene.service;
 
+import com.sb.seegene.config.jwt.JwtTokenProvider;
+import com.sb.seegene.dto.JwtToken;
 import com.sb.seegene.dto.MemberDto;
 import com.sb.seegene.dto.MenuRoleDto;
 import com.sb.seegene.dto.UserRoleDto;
@@ -9,15 +11,26 @@ import com.sb.seegene.repository.MemberRepository;
 import com.sb.seegene.repository.MenuRoleRepository;
 import com.sb.seegene.repository.UserRoleRepository;
 import com.sb.seegene.vo.ApprovalVo;
+import com.sb.seegene.vo.LoginVo;
+import com.sb.seegene.vo.MemberVo;
 import com.sb.seegene.vo.UserRoleVo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ObjectUtils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -29,6 +42,11 @@ public class MemberService {
     private final UserRoleRepository userRoleRepository;
     private final MenuRoleRepository menuRoleRepository;
 
+    private final AuthenticationManagerBuilder authenticationManagerBuilder;
+    private final JwtTokenProvider jwtTokenProvider;
+
+    private PasswordEncoder passwordEncoder;
+
     /**
      * Member 생성
      *
@@ -38,6 +56,17 @@ public class MemberService {
     public MemberDto createMember(Member member) {
         MemberDto saveMember = MemberDto.of(memberRepository.save(member));
         return saveMember;
+    }
+
+    @Transactional
+    public MemberDto singUp(MemberVo memberVo) {
+        if(memberRepository.existsById(memberVo.getId())) {
+            return null;
+//            throw new IllegalArgumentException("사용 중인 ID입니다.");
+        }
+        List<String> roles = new ArrayList<>();
+        roles.add("USER");
+        return MemberDto.of(memberRepository.save(memberVo.toEntity(memberVo.getPassword(), roles)));
     }
 
     /**
@@ -79,7 +108,7 @@ public class MemberService {
      * @return
      */
     public MemberDto findMember(String id, String password) {
-        return MemberDto.of(memberRepository.findMember(id, password));
+        return MemberDto.of(memberRepository.findMember(id, password).orElse(null));
     }
 
     /**
@@ -89,7 +118,7 @@ public class MemberService {
      * @return
      */
     public MemberDto findMemberByStatus(String id) {
-        return MemberDto.of(memberRepository.findMemberByStatus(id));
+        return MemberDto.of(memberRepository.findMemberByStatus(id).orElse(null));
     }
 
     /**
@@ -143,6 +172,64 @@ public class MemberService {
         return menuRoleDtoList;
     }
 
+    /**
+     * 토큰 생성
+     *
+     * @param username
+     * @param password
+     * @return
+     */
+    @Transactional
+    public JwtToken jwtToken(String username, String password) {
+        // 1. username + password 를 기반으로 Authentication 객체 생성
+        // 이때 authentication 은 인증 여부를 확인하는 authenticated 값이 false
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(username, password);
 
+        // 2. 실제 검증. authenticate() 메서드를 통해 요청된 Member 에 대한 검증 진행
+        // authenticate 메서드가 실행될 때 CustomUserDetailsService 에서 만든 loadUserByUsername 메서드 실행
+        Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+
+        // 3. 인증 정보를 기반으로 JWT 토큰 생성
+        JwtToken jwtToken = jwtTokenProvider.generateToken(authentication);
+
+        return jwtToken;
+    }
+
+    /**
+     * 로그인
+     *
+     * @param loginVo
+     * @return
+     */
+    public Map<String, Object> signIn(LoginVo loginVo) {
+        String username = loginVo.getId();
+        String password = loginVo.getPassword();
+
+        Map<String, Object> result = new HashMap<>();
+        MemberDto loginMember = findMember(username, password);
+        if (ObjectUtils.isEmpty(loginMember)) {
+            // id, password 실패
+            String message = "Id, Password 확인해주세요.";
+            result.put("message", message);
+            result.put("httpStatus", "BAD_REQUEST");
+            return result;
+        }
+
+        MemberDto statusMember = findMemberByStatus(username);
+        if (ObjectUtils.isEmpty(statusMember)) {
+            // 승인대기 상태
+            String message = "승인 대기상태입니다.";
+            result.put("message", message);
+            result.put("httpStatus", "UNAUTHORIZED");
+            return result;
+        }
+
+        JwtToken jwtToken = jwtToken(username, password);
+        log.info("request username = {}, password = {}", username, password);
+        log.info("jwtToken accessToken = {}, refreshToken = {}", jwtToken.getAccessToken(), jwtToken.getRefreshToken());
+        result.put("JwtToken", jwtToken);
+        result.put("httpStatus", "OK");
+        return result;
+    }
 
 }

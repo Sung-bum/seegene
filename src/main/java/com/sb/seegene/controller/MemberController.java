@@ -5,6 +5,7 @@ import com.sb.seegene.dto.MenuRoleDto;
 import com.sb.seegene.entity.Member;
 import com.sb.seegene.service.MemberService;
 import com.sb.seegene.vo.ApprovalVo;
+import com.sb.seegene.vo.MemberVo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +33,26 @@ public class MemberController {
         member.setStatus("w");
         MemberDto savedMember = memberService.createMember(member);
         return new ResponseEntity<>(savedMember, HttpStatus.OK);
+    }
+
+    /**
+     * 토큰 추가 후 회원가입
+     * Member 생성(회원가입 - 최초 status w 로 대기 상태)
+     *
+     * @param memberVo
+     * @return
+     */
+    @PostMapping("/signup")
+    public ResponseEntity<?> singUp(@RequestBody MemberVo memberVo) {
+        memberVo.setStatus("w"); // 가입승인대기
+        MemberDto saveMemberDto = memberService.singUp(memberVo);
+        if (!ObjectUtils.isEmpty(saveMemberDto)) {
+            return new ResponseEntity<>(saveMemberDto, HttpStatus.OK);
+        } else {
+            String message = "사용중인 ID입니다.";
+            return new ResponseEntity<>(message, HttpStatus.BAD_REQUEST);
+        }
+
     }
 
     /**

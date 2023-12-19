@@ -79,7 +79,11 @@ public class MenuService {
      * @param id
      */
     public int deleteMenu(String id) {
-        List<MenuDto> childMenu = MenuDto.listOf(menuRepository.findByChildMenu(id));
+        List<Menu> menuList = menuRepository.findByChildMenu(id);
+        if (menuList == null || menuList.isEmpty()) {
+            return 0;
+        }
+        List<MenuDto> childMenu = MenuDto.listOf(menuList);
         if (childMenu.size() > 0) {
             return 0;
         } else {

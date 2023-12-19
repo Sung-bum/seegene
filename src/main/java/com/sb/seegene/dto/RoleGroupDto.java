@@ -6,6 +6,9 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -17,5 +20,16 @@ public class RoleGroupDto {
         return new RoleGroupDto(roleGroup.getRoleId(),
                 roleGroup.getRoleName()
         );
+    }
+
+    public static List<RoleGroupDto> listOf(List<RoleGroup> roleGroups) {
+        List<RoleGroupDto> list = new ArrayList<>();
+        for (RoleGroup roleGroup : roleGroups) {
+            list.add(new RoleGroupDto(
+                    roleGroup.getRoleId(),
+                    roleGroup.getRoleName()
+            ));
+        }
+        return list;
     }
 }
